@@ -1,5 +1,5 @@
-use std::{fs, io};
 use std::path::{Path, PathBuf};
+use std::{fs, io};
 
 pub enum Line {
     Blank,
@@ -12,12 +12,15 @@ pub struct EnvFile {
     pub(crate) path: PathBuf,
 }
 
-
 impl EnvFile {
     pub fn read<T: AsRef<Path>>(path: T) -> Self {
-        let s = fs::read_to_string(&path).expect(&format!("Failed to read file: {} ", path.as_ref().display()));
+        let s = fs::read_to_string(&path).expect(&format!(
+            "Failed to read file: {} ",
+            path.as_ref().display()
+        ));
         EnvFile {
-            lines: s.split('\n')
+            lines: s
+                .split('\n')
                 .map(|line| {
                     let line = line.trim();
                     if line.starts_with('#') {
@@ -38,16 +41,14 @@ impl EnvFile {
 
     pub fn remove(&mut self, key: &str) {
         let path = self.path.display();
-        self.lines.retain(|line| {
-            match line {
-                Line::Pair(k, _) => {
-                    if key == k {
-                        eprintln!("{}: Removed {}", path, k);
-                    }
-                    k != key
-                },
-                _ => true,
+        self.lines.retain(|line| match line {
+            Line::Pair(k, _) => {
+                if key == k {
+                    eprintln!("{}: Removed {}", path, k);
+                }
+                k != key
             }
+            _ => true,
         })
     }
 
@@ -70,11 +71,13 @@ impl EnvFile {
     pub fn lookup(&self, key: &str) -> Option<String> {
         self.lines.iter().find_map(|p| match p {
             Line::Blank => None,
-            Line::Pair(k, value) => if k == key {
-                Some(value.to_string())
-            } else {
-                None
-            },
+            Line::Pair(k, value) => {
+                if k == key {
+                    Some(value.to_string())
+                } else {
+                    None
+                }
+            }
             Line::Comment(_) => None,
         })
     }
@@ -86,14 +89,14 @@ impl EnvFile {
                 Line::Pair(k, existing_value) => {
                     if key == k {
                         if value == existing_value {
-                            return
+                            return;
                         } else if value.is_empty() && !existing_value.is_empty() {
                             eprintln!("{}: {} already exists", self.path.display(), key);
-                            return
+                            return;
                         } else {
                             *line = Line::Pair(key.to_string(), value.to_string());
                             eprintln!("{}: Updated {}={}", self.path.display(), key, value);
-                            return
+                            return;
                         }
                     }
                 }
@@ -105,20 +108,24 @@ impl EnvFile {
     }
 
     pub fn save(&mut self) -> io::Result<()> {
-        fs::write(&self.path, self.lines
-            .iter()
-            .map(|line| match line {
-                Line::Blank => String::new(),
-                Line::Pair(key, value) => format!("{}={}", key, value),
-                Line::Comment(line) => line.to_string(),
-            })
-            .collect::<Vec<String>>()
-            .join("\n")
+        fs::write(
+            &self.path,
+            self.lines
+                .iter()
+                .map(|line| match line {
+                    Line::Blank => String::new(),
+                    Line::Pair(key, value) => format!("{}={}", key, value),
+                    Line::Comment(line) => line.to_string(),
+                })
+                .collect::<Vec<String>>()
+                .join("\n"),
         )
     }
 
     pub fn use_ordering_from(&mut self, envfile: &EnvFile) {
-        let newlines = envfile.lines.iter()
+        let newlines = envfile
+            .lines
+            .iter()
             .map(|line| match line {
                 Line::Blank => Line::Blank,
                 Line::Pair(key, _) => {
@@ -135,10 +142,7 @@ impl EnvFile {
     }
 
     pub fn iter(&self) -> EnvIter {
-        EnvIter {
-            env: self,
-            i: 0
-        }
+        EnvIter { env: self, i: 0 }
     }
 }
 
@@ -147,19 +151,14 @@ impl<'a> IntoIterator for &'a EnvFile {
     type IntoIter = EnvIter<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
-        EnvIter {
-            env: self,
-            i: 0,
-        }
+        EnvIter { env: self, i: 0 }
     }
 }
-
 
 pub struct EnvIter<'a> {
     env: &'a EnvFile,
     i: usize,
 }
-
 
 impl<'a> Iterator for EnvIter<'a> {
     type Item = (&'a String, &'a String);
@@ -177,7 +176,6 @@ impl<'a> Iterator for EnvIter<'a> {
         None
     }
 }
-
 
 impl Drop for EnvFile {
     fn drop(&mut self) {
